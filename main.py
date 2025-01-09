@@ -5,6 +5,7 @@ from config import config
 import os
 from pinecone import Pinecone, ServerlessSpec
 import logging
+from llm.llm import LLM
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,11 @@ def main():
         index_name=index_name,
     )
     vector_store = vector_store.initialize_vectorstore()
+
+    groq_llm = LLM().get_groq_llm(
+        groq_api_key=config.GROQ_ACCESS_TOKEN,
+        groq_model_name=str(config.GROQ_MODEL_NAME),
+    )
 
 
 if __name__ == "__main__":
