@@ -1,0 +1,6 @@
+PINECONE_ACCESS_TOKEN = (
+    "pcsk_2ZaKS9_EVWvqwfn6dURGfLQcaBF6vTnqsFqtDMn1d5thTY2fiYAauQ2hyeXNymsUgefBXk"
+)
+GROQ_ACCESS_TOKEN = "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"
+EMBEDDINGS_MODEL_NAME = "all-MiniLM-L6-v2"
+INDEX_NAME = "simran"
