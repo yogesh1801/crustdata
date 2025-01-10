@@ -1,71 +1,67 @@
-from api_doc_processor.doc_processor import ApiDocProcessor
-from vector_store.vector_store import VectorStore
-from assets.test_doc import api_docs
-from config import config
 import os
-from pinecone import Pinecone, ServerlessSpec
 import logging
-from llm.llm import LLM
-from assets.prompt_temp import prompt_temp
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.output_parser import StrOutputParser
-from langchain.schema.runnable import RunnablePassthrough
+from utility.api_doc_processor import ApiDocProcessor
+from assets.test_doc import api_docs
+from utility.vector_store import VectorStore
+from utility.llm import LLM
+from utility.embeddings import Embeddings
+from config import config
+from langchain import hub
+from utility.state import State
+from langgraph.graph import START, StateGraph
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
+embeddings_model = str(config.EMBEDDINGS_MODEL_NAME)
+pinecone_api_key = str(config.PINECONE_ACCESS_TOKEN)
+index_name = str(config.INDEX_NAME)
+groq_api_key = str(config.GROQ_ACCESS_TOKEN)
+groq_model_name = str(config.GROQ_MODEL_NAME)
+prompt_template = str(config.PROMPT_TEMPLATE_NAME)
+langsmith_api_key = str(config.LANGSMITH_API_KEY)
 
-def format_docs(docs):
-    """Format retrieved documents into a single string"""
-    return "\n\n".join(doc.page_content for doc in docs)
+os.environ["PINECONE_API_KEY"] = pinecone_api_key
+os.environ["GROQ_API_KEY"] = groq_api_key
+os.environ["LANGSMITH_API_KEY"] = langsmith_api_key
+
+embeddings = Embeddings().get_huggingface_embeddings(model_name=embeddings_model)
+
+vector_store = VectorStore(embeddings=embeddings).get_pinecone_vector_store(
+    pinecone_api_key=pinecone_api_key, index_name=index_name
+)
+
+llm = LLM().get_groq_llm(model_name=groq_model_name)
+
+prompt = hub.pull(prompt_template)
+
+
+def retrieve(state: State):
+    retrieved_docs = vector_store.similarity_search(state["question"])
+    return {"context": retrieved_docs}
+
+
+def generate(state: State):
+    docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+    messages = prompt.invoke({"question": state["question"], "context": docs_content})
+    response = llm.invoke(messages)
+    return {"answer": response.content}
 
 
 def main():
-    os.environ["LANGCHAIN_TRACING_V2"] = "false"
-    os.environ["PINECONE_API_KEY"] = str(config.PINECONE_ACCESS_TOKEN)
+    docs = ApiDocProcessor(api_docs=api_docs).process_api_docs()
+    logging.info(f"Seeding {len(docs)} documents to the vector store")
+    documents_ids = vector_store.add_documents(documents=docs)
+    logging.info(f"Documents IDs {documents_ids[:3]}")
 
-    pc = Pinecone()
+    graph_builder = StateGraph(State).add_sequence([retrieve, generate])
+    graph_builder.add_edge(START, "retrieve")
+    graph = graph_builder.compile()
 
-    index_name = config.INDEX_NAME
-
-    if index_name not in pc.list_indexes().names():
-        pc.create_index(
-            name=index_name,
-            dimension=384,
-            metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
-        )
-
-    api_doc_processor = ApiDocProcessor(api_docs=api_docs)
-    processed_api_documents = api_doc_processor.process_api_docs()
-
-    vector_store = VectorStore(
-        model_name=str(config.EMBEDDINGS_MODEL_NAME),
-        documents=processed_api_documents,
-        index_name=index_name,
-    )
-    vector_store = vector_store.initialize_vectorstore()
-
-    groq_llm = LLM().get_groq_llm(
-        groq_api_key=config.GROQ_ACCESS_TOKEN,
-        groq_model_name=str(config.GROQ_MODEL_NAME),
-    )
-
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    prompt = ChatPromptTemplate.from_template(template=prompt_temp)
-    chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | prompt
-        | groq_llm
-        | StrOutputParser()
-    )
-
-    answer = chain.invoke("can u tell me how to run this API")
-    print(answer)
-    answer = chain.invoke("what question did i ask earlier")
-    print(answer)
+    response = graph.invoke({"question": "give python code for Funding Milestones api"})
+    print(response)
 
 
 if __name__ == "__main__":
