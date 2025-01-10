@@ -60,8 +60,23 @@ def main():
     graph_builder.add_edge(START, "retrieve")
     graph = graph_builder.compile()
 
-    response = graph.invoke({"question": "give python code for Funding Milestones api"})
-    print(response)
+    print("Ask a question (type 'exit' to quit):")
+    while True:
+        try:
+            question = input(">>> ")
+            if question.strip().lower() == "exit":
+                print("Exiting the program. Goodbye!")
+                break
+            
+            response = graph.invoke({"question": question})
+            print("\nAnswer:")
+            print(response["answer"])
+        except KeyboardInterrupt:
+            print("\nExiting the program. Goodbye!")
+            break
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            print("An error occurred. Please try again.")
 
 
 if __name__ == "__main__":
