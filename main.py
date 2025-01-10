@@ -6,6 +6,10 @@ import os
 from pinecone import Pinecone, ServerlessSpec
 import logging
 from llm.llm import LLM
+from assets.prompt_temp import prompt_temp
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema.output_parser import StrOutputParser
+from langchain.schema.runnable import RunnablePassthrough
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +17,13 @@ logging.basicConfig(
 )
 
 
+def format_docs(docs):
+    """Format retrieved documents into a single string"""
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
 def main():
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
     os.environ["PINECONE_API_KEY"] = str(config.PINECONE_ACCESS_TOKEN)
 
     pc = Pinecone()
@@ -42,6 +52,20 @@ def main():
         groq_api_key=config.GROQ_ACCESS_TOKEN,
         groq_model_name=str(config.GROQ_MODEL_NAME),
     )
+
+    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+    prompt = ChatPromptTemplate.from_template(template=prompt_temp)
+    chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | groq_llm
+        | StrOutputParser()
+    )
+
+    answer = chain.invoke("can u tell me how to run this API")
+    print(answer)
+    answer = chain.invoke("what question did i ask earlier")
+    print(answer)
 
 
 if __name__ == "__main__":

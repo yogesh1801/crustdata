@@ -15,6 +15,7 @@ class ApiDocProcessor:
         self.documents = []
 
     def process_api_docs(self) -> List[Document]:
+        logging.info("Starting to process the documents for embeddings")
         for doc in self.api_docs:
             text = f"""
             API Name: {doc["name"]}
@@ -29,7 +30,9 @@ class ApiDocProcessor:
             self.documents.append(document)
 
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200, separators=["\n\n", "\n", " ", ""]
+            chunk_size=1000, chunk_overlap=200
         )
 
-        return text_splitter.split_documents(self.documents)
+        splits = text_splitter.split_documents(self.documents)
+        logging.info(f"Finished splitting documents into {len(splits)} sub-documents")
+        return splits
