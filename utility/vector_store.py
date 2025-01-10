@@ -9,6 +9,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
+
 class VectorStore:
     def __init__(self, embeddings: HuggingFaceEmbeddings):
         self.embeddings = embeddings
