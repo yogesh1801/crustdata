@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+    <title>Chatbot</title>
+    <style>
+        /* General styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Chatbot container */
+        .chatbot-container {
+            width: 400px;
+            height: 600px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chat header */
+        .chat-header {
+            background-color: #0078d7;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Chat window */
+        .chat-window {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ccc;
+        }
+
+        /* Chat messages */
+        .chat-message {
+            margin: 10px 0;
+            display: flex;
+        }
+
+        .user-message {
+            justify-content: flex-end;
+            text-align: right;
+        }
+
+        .bot-message {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user-message .message-bubble {
+            background-color: #0078d7;
+            color: white;
+            border-bottom-right-radius: 0;
+        }
+
+        .bot-message .message-bubble {
+            background-color: #f1f1f1;
+            color: #333;
+            border-bottom-left-radius: 0;
+        }
+
+        /* Chat input area */
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .chat-input-area button {
+            padding: 10px 15px;
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .chat-input-area button:hover {
+            background-color: #005bb5;
+        }
+    </style>
+</head>
+<body>
+    <div class="chatbot-container">
+        <div class="chat-header">
+            Chatbot
+        </div>
+        <div class="chat-window" id="chat-window">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Type your message here..." autocomplete="off">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const inputField = document.getElementById('user-input');
+            const chatWindow = document.getElementById('chat-window');
+    
+            const userMessage = inputField.value.trim();
+            if (userMessage === '') return;
+    
+            // Add user message to chat
+            const userMessageElement = document.createElement('div');
+            userMessageElement.className = 'chat-message user-message';
+            userMessageElement.innerHTML = `<div class="message-bubble">You: ${userMessage}</div>`;
+            chatWindow.appendChild(userMessageElement);
+    
+            // Scroll to bottom
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+    
+            // Clear input
+            inputField.value = '';
+    
+            // Make an API request to Flask backend
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: userMessage
+                    }),
+                });
+    
+                const data = await response.json();
+                const botResponse = data.response;
+    
+                // Add bot response to chat
+                const botMessageElement = document.createElement('div');
+                botMessageElement.className = 'chat-message bot-message';
+                botMessageElement.innerHTML = `<div class="message-bubble">Bot: ${botResponse}</div>`;
+                chatWindow.appendChild(botMessageElement);
+    
+                // Scroll to bottom after new message
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
